@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Youth Academy Player Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;font-family:system-ui;background:#0b1220;color:#e8eefc}
+.wrapper{max-width:1100px;margin:auto;padding:20px}
+.card{background:#111b31;border-radius:14px;padding:16px;margin-bottom:16px}
+button{cursor:pointer}
+.pos-btn{margin:4px;padding:8px 10px;border-radius:20px;border:1px solid #333;background:#1a2545;color:#fff}
+.pos-btn.selected{background:#5dd6ff;color:#000}
+.player{border:1px solid #333;border-radius:12px;padding:10px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrapper">
+<h1>Youth Academy Player Generator</h1>
+
+<div class="card">
+<h3>Select 3 Positions</h3>
+<div id="positions"></div>
+<p id="counter">0 / 3 selected</p>
+
+<label>Investment (1–20)</label>
+<input id="investment" type="number" min="1" max="20" value="10">
+
+<label>Academy level (1–5)</label>
+<input id="academy" type="number" min="1" max="5" value="3">
+
+<label>Main nationality</label>
+<select id="mainNat"></select>
+
+<label>Foreigners (0–6)</label>
+<input id="foreigners" type="number" min="0" max="6" value="2">
+
+<br><br>
+<button onclick="generate()">Generate players</button>
+</div>
+
+<div class="card">
+<h3>Results</h3>
+<div id="results"></div>
+</div>
+</div>
+
+<script>
+const POSITIONS=["Striker","Left Wing","Right Wing","Attacking Midfield","Center Midfield","Defensive Midfield","Left Back","Right Back","Defender","Goalkeeper"];
+const QUALITIES=["Ball control","Dribbling","Tackling","Intercepting","Vision","Powershots","Finishing","Positioning","Speed","Strenght","Stamina","Passing","Long passing"];
+
+let selected=[];
+let namesData={};
+
+fetch("names.json").then(r=>r.json()).then(d=>{
+  namesData=d;
+  Object.keys(d).forEach(c=>{
+    const o=document.createElement("option");
+    o.textContent=c;
+    mainNat.appendChild(o);
+  });
+});
+
+POSITIONS.forEach(p=>{
+  const b=document.createElement("button");
+  b.textContent=p;
+  b.className="pos-btn";
+  b.onclick=()=>{
+    if(selected.includes(p)){selected=selected.filter(x=>x!==p);b.classList.remove("selected")}
+    else if(selected.length<3){selected.push(p);b.classList.add("selected")}
+    counter.textContent=selected.length+" / 3 selected";
+  };
+  positions.appendChild(b);
+});
+
+function rand(min,max){return Math.random()*(max-min)+min}
+
+function genValue(inv,acad){
+  const alpha=5-(inv/20)*2-(acad/5)*1.5;
+  return Math.round(50000+(30000000-50000)*(1-Math.pow(Math.random(),alpha)));
+}
+
+function generate(){
+  results.innerHTML="";
+  if(selected.length!==3){alert("Select exactly 3 positions");return;}
+  let inv=investment.value,acad=academy.value;
+  let total=6;
+  let foreign=parseInt(foreigners.value);
+  let countries=Object.keys(namesData);
+  let nats=Array(total).fill(mainNat.value);
+  for(let i=0;i<foreign;i++) nats[i]=countries[Math.floor(Math.random()*countries.length)];
+
+  let idx=0;
+  selected.forEach(pos=>{
+    for(let i=0;i<2;i++){
+      let nat=nats[idx++];
+      let f=namesData[nat].first;
+      let l=namesData[nat].last;
+      let name=f[Math.floor(Math.random()*f.length)]+" "+l[Math.floor(Math.random()*l.length)];
+      let age=16+Math.floor(Math.random()*6);
+      let val=genValue(inv,acad);
+      let buffs=Math.floor(val/7000000);
+      let el=document.createElement("div");
+      el.className="player";
+      el.innerHTML="<b>"+name+"</b> ("+age+")<br>"+nat+" – "+pos+"<br>€"+(val/1e6).toFixed(1)+"m<br>Buffs: "+buffs;
+      results.appendChild(el);
+    }
+  });
+}
+</script>
+</body>
+</html>
