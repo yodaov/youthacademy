@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Youth Academy Player Generator</title>
+  <style>
+    :root{
+      --bg:#0b0f14; --panel:#101723; --panel2:#0f1724; --text:#e8eef7; --muted:#a9b4c2;
+      --accent:#4bb3fd; --good:#41d17a; --warn:#ffcc66; --bad:#ff6b6b; --border:#223049;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background:linear-gradient(180deg, #070b10, #0b0f14 40%, #070b10);
+      color:var(--text);
+    }
+    header{
+      padding:20px 18px 10px; border-bottom:1px solid var(--border);
+      background:rgba(16,23,35,.9); position:sticky; top:0; backdrop-filter: blur(10px);
+      z-index:5;
+    }
+    header h1{margin:0; font-size:18px; letter-spacing:.2px}
+    header p{margin:6px 0 0; color:var(--muted); font-size:13px}
+    .wrap{max-width:1100px; margin:0 auto; padding:18px}
+    .grid{display:grid; grid-template-columns: 380px 1fr; gap:14px}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+    .card{
+      background:rgba(16,23,35,.85);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .card h2{margin:0 0 10px; font-size:14px; color:#dce6f4; letter-spacing:.2px}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .field{display:flex; flex-direction:column; gap:6px; margin:10px 0}
+    label{font-size:12px; color:var(--muted)}
+    input[type="range"]{width:100%}
+    select, input[type="number"], button{
+      background:rgba(8,12,18,.9);
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:12px;
+      padding:10px 10px;
+      outline:none;
+      font-size:13px;
+    }
+    input[type="number"]{width:120px}
+    button{
+      cursor:pointer; font-weight:650; letter-spacing:.2px;
+      background:linear-gradient(180deg, rgba(75,179,253,.22), rgba(75,179,253,.10));
+      border:1px solid rgba(75,179,253,.35);
+    }
+    button:hover{filter:brightness(1.08)}
+    button:disabled{opacity:.5; cursor:not-allowed}
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid var(--border); border-radius:999px;
+      padding:6px 10px; font-size:12px; color:var(--muted);
+      background:rgba(8,12,18,.6);
+    }
+    .posgrid{display:grid; grid-template-columns: 1fr 1fr; gap:8px}
+    .pos{
+      display:flex; gap:10px; align-items:flex-start;
+      border:1px solid var(--border); background:rgba(8,12,18,.5);
+      border-radius:12px; padding:10px;
+    }
+    .pos input{margin-top:2px}
+    .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.35}
+    .error{color:var(--bad); font-size:12px; margin-top:8px}
+    .results{min-height:240px}
+    .table{
+      width:100%; border-collapse:separate; border-spacing:0;
+      overflow:hidden; border-radius:12px; border:1px solid var(--border);
+    }
+    .table thead th{
+      text-align:left; font-size:12px; color:#cfe0f6;
+      padding:10px 10px; background:rgba(8,12,18,.85);
+      border-bottom:1px solid var(--border);
+    }
+    .table tbody td{
+      padding:10px 10px; font-size:13px; border-bottom:1px solid rgba(34,48,73,.6);
+      color:#e6eef9;
+      vertical-align:top;
+    }
+    .table tbody tr:last-child td{border-bottom:none}
+    .muted{color:var(--muted)}
+    .value{font-variant-numeric: tabular-nums}
+    .stars{color:var(--warn); letter-spacing:1px; margin-left:8px}
+    .buffs{color:#cfe0f6; font-size:12px; margin-top:4px}
+    .tag{
+      display:inline-flex; padding:2px 8px; border-radius:999px;
+      border:1px solid rgba(75,179,253,.3); background:rgba(75,179,253,.12);
+      color:#d7ecff; font-size:12px;
+    }
+    footer{color:var(--muted); font-size:12px; padding:16px 18px; border-top:1px solid var(--border)}
+    .kpi{display:flex; gap:8px; flex-wrap:wrap; margin-top:6px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Youth Academy Player Generator</h1>
+    <p>Pick up to 3 positions → set investment + academy level → generate 2 players per position. Values are heavily skewed low; €30m is ultra-rare.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <section class="card">
+      <h2>Setup</h2>
+
+      <div class="field">
+        <label>Positions (choose up to 3)</label>
+        <div class="posgrid" id="positions"></div>
+        <div class="hint">You will get <b>2 players per position</b>. Total players = positions × 2.</div>
+        <div class="error" id="posError" style="display:none;"></div>
+      </div>
+
+      <div class="field">
+        <div class="row" style="justify-content:space-between; width:100%">
+          <label for="investment">Investment (1–20)</label>
+          <span class="pill"><span class="muted">Current:</span> <b id="invLabel">1</b></span>
+        </div>
+        <input id="investment" type="range" min="1" max="20" step="1" value="1" />
+        <div class="hint">Higher investment increases the average value and makes the high tail more likely (still rare).</div>
+      </div>
+
+      <div class="field">
+        <div class="row" style="justify-content:space-between; width:100%">
+          <label for="academy">Academy Level (1–5)</label>
+          <span class="pill"><span class="muted">Current:</span> <b id="acadLabel">1</b></span>
+        </div>
+        <input id="academy" type="range" min="1" max="5" step="1" value="1" />
+        <div class="hint">Higher academy level increases the average value and reduces chaotic swings.</div>
+      </div>
+
+      <div class="field">
+        <label for="mainNat">Main Nationality</label>
+        <select id="mainNat"></select>
+        <div class="hint">Most players will come from the main nationality unless you add foreigners.</div>
+      </div>
+
+      <div class="field">
+        <div class="row" style="justify-content:space-between; width:100%">
+          <label for="foreigners">Number of foreigners (0–6)</label>
+          <input id="foreigners" type="number" min="0" max="6" value="0" />
+        </div>
+        <div class="hint">Foreigners are randomly assigned among all generated players.</div>
+      </div>
+
+      <div class="row" style="gap:10px; margin-top:12px">
+        <button id="generate" disabled>Generate players</button>
+        <button id="reset" type="button">Reset</button>
+      </div>
+
+      <div class="kpi" id="kpi"></div>
+      <div class="error" id="dataError" style="display:none;"></div>
+    </section>
+
+    <section class="card results">
+      <h2>Results</h2>
+      <table class="table" id="resultsTable" style="display:none;">
+        <thead>
+          <tr>
+            <th style="width:140px">Position</th>
+            <th>Player</th>
+            <th style="width:120px">Age</th>
+            <th style="width:170px">Nationality</th>
+            <th style="width:220px">Value & Buffs</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+      <div class="hint" id="emptyState">
+        Click <b>Generate players</b> to create your youth intake. Values follow a log-scale distribution calibrated for academy realism.
+      </div>
+    </section>
+  </div>
+</div>
+
+<footer class="wrap">
+  Notes: 1 buff per €7m. Buffs are position-weighted. The generator uses a log-normal style curve with an ultra-rare “phenom jump” influenced mostly by investment + academy (luck is minor).
+</footer>
+
+<script>
+(() => {
+  // ----------------------------
+  // Config
+  // ----------------------------
+  const POSITIONS = [
+    "Striker","Left Wing","Right Wing","Attacking Midfield","Center Midfield",
+    "Defensive Midfield","Left Back","Right Back","Defender","Goalkeeper"
+  ];
+
+  const BUFFS = [
+    "Ball control","Dribbling","Tackling","Intercepting","Vision","Powershots",
+    "Finishing","Positioning","Speed","Strength","Stamina","Passing","Long passing"
+  ];
+
+  // Rough weighting by position: choose a pool, then random sample unique.
+  const BUFF_WEIGHTS_BY_POSITION = {
+    "Striker":           ["Finishing","Positioning","Powershots","Ball control","Speed","Strength","Stamina","Dribbling","Vision","Passing"],
+    "Left Wing":         ["Dribbling","Speed","Ball control","Passing","Vision","Finishing","Stamina","Long passing","Positioning"],
+    "Right Wing":        ["Dribbling","Speed","Ball control","Passing","Vision","Finishing","Stamina","Long passing","Positioning"],
+    "Attacking Midfield":["Vision","Passing","Ball control","Dribbling","Long passing","Positioning","Stamina","Powershots"],
+    "Center Midfield":   ["Passing","Vision","Stamina","Ball control","Long passing","Intercepting","Tackling","Positioning"],
+    "Defensive Midfield":["Tackling","Intercepting","Stamina","Passing","Vision","Strength","Positioning","Ball control","Long passing"],
+    "Left Back":         ["Tackling","Intercepting","Speed","Stamina","Passing","Ball control","Long passing","Positioning","Strength"],
+    "Right Back":        ["Tackling","Intercepting","Speed","Stamina","Passing","Ball control","Long passing","Positioning","Strength"],
+    "Defender":          ["Tackling","Intercepting","Strength","Positioning","Stamina","Passing","Ball control"],
+    "Goalkeeper":        ["Positioning","Vision","Strength","Stamina","Passing","Long passing"] // keep it simple; "reflexes" etc not in list
+  };
+
+  // ----------------------------
+  // DOM
+  // ----------------------------
+  const elPositions = document.getElementById("positions");
+  const elPosError = document.getElementById("posError");
+  const elInv = document.getElementById("investment");
+  const elInvLabel = document.getElementById("invLabel");
+  const elAcad = document.getElementById("academy");
+  const elAcadLabel = document.getElementById("acadLabel");
+  const elMainNat = document.getElementById("mainNat");
+  const elForeigners = document.getElementById("foreigners");
+  const elGenerate = document.getElementById("generate");
+  const elReset = document.getElementById("reset");
+  const elDataError = document.getElementById("dataError");
+  const elKpi = document.getElementById("kpi");
+
+  const elResultsTable = document.getElementById("resultsTable");
+  const elResultsBody = document.getElementById("resultsBody");
+  const elEmptyState = document.getElementById("emptyState");
+
+  // ----------------------------
+  // State
+  // ----------------------------
+  let NAMES = null;
+
+  function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+  function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+  function randChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  // Box–Muller transform for standard normal
+  function randNorm(){
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  }
+
+  function formatEUR(value){
+    // human-friendly formatting: 50k … 30m
+    if(value >= 1_000_000){
+      return "€" + (value/1_000_000).toFixed(2).replace(/\.00$/,"") + "m";
+    }
+    if(value >= 1_000){
+      return "€" + Math.round(value/1_000) + "k";
+    }
+    return "€" + Math.round(value);
+  }
+
+  function createPositionsUI(){
+    elPositions.innerHTML = "";
+    for(const pos of POSITIONS){
+      const wrap = document.createElement("label");
+      wrap.className = "pos";
+      wrap.innerHTML = `
+        <input type="checkbox" value="${pos}">
+        <div>
+          <div style="font-weight:650; font-size:13px; margin-bottom:2px">${pos}</div>
+          <div class="muted" style="font-size:12px">2 players</div>
+        </div>
+      `;
+      elPositions.appendChild(wrap);
+    }
+    elPositions.addEventListener("change", onPositionsChange);
+  }
+
+  function getSelectedPositions(){
+    return [...elPositions.querySelectorAll('input[type="checkbox"]:checked')].map(x => x.value);
+  }
+
+  function onPositionsChange(){
+    const sel = getSelectedPositions();
+    if(sel.length > 3){
+      // uncheck the last one toggled (best-effort)
+      const checked = elPositions.querySelectorAll('input[type="checkbox"]:checked');
+      checked[checked.length-1].checked = false;
+    }
+    validate();
+  }
+
+  function validate(){
+    const sel = getSelectedPositions();
+    const ok = sel.length >= 1 && sel.length <= 3 && !!NAMES;
+    elGenerate.disabled = !ok;
+
+    if(sel.length === 0){
+      elPosError.style.display = "block";
+      elPosError.textContent = "Pick at least 1 position.";
+    } else {
+      elPosError.style.display = "none";
+    }
+
+    if(!NAMES){
+      elDataError.style.display = "block";
+      elDataError.textContent = "names.json could not be loaded. Make sure names.json is in the same folder as index.html.";
+    } else {
+      elDataError.style.display = "none";
+      elDataError.textContent = "";
+    }
+
+    const totalPlayers = sel.length * 2;
+    const foreigners = clamp(parseInt(elForeigners.value || "0",10), 0, 6);
+    const foreignersUsed = clamp(foreigners, 0, totalPlayers);
+    elKpi.innerHTML = `
+      <span class="pill"><span class="muted">Total players:</span> <b>${totalPlayers}</b></span>
+      <span class="pill"><span class="muted">Foreigners used:</span> <b>${foreignersUsed}</b></span>
+    `;
+  }
+
+  function populateNationalities(){
+    const keys = Object.keys(NAMES.countries || {});
+    keys.sort((a,b)=>a.localeCompare(b));
+    elMainNat.innerHTML = keys.map(k => `<option value="${k}">${k}</option>`).join("");
+    // default: Brazil if exists, else first
+    if(keys.includes("Brazil")) elMainNat.value = "Brazil";
+  }
+
+  // ----------------------------
+  // Core: value equation
+  // ----------------------------
+  function generateValue(inv, acad){
+    const invN = (inv - 1) / 19;  // 0..1
+    const acadN = (acad - 1) / 4; // 0..1
+    const u = Math.random();
+
+    // Core log10 scale params (investment + academy dominate; luck minor)
+    const mu = 5.45 + 0.55*invN + 0.45*acadN + 0.08*(u - 0.5);
+    const sigma = 0.33 - 0.08*invN - 0.07*acadN;
+
+    const z = randNorm();
+    let log10v = mu + sigma * z;
+    let value = Math.pow(10, log10v);
+
+    // Clamp base first
+    value = clamp(value, 50_000, 30_000_000);
+
+    // Ultra-rare phenom jump ("new Messi" logic)
+    const pPhenom = 0.0003 + 0.0030*invN + 0.0025*acadN; // tiny at low settings, still rare at max
+    if(Math.random() < pPhenom){
+      const mult = 1.8 + Math.random() * (3.2 - 1.8);
+      value = clamp(value * mult, 50_000, 30_000_000);
+    }
+
+    // Hard sanity: ensure low setups don't produce absurd highs due to extreme z.
+    // (Still allows rare highs; just prevents pathological spam.)
+    if(invN < 0.15 && acadN < 0.25){
+      value = Math.min(value, 5_000_000);
+    }
+
+    return Math.round(value);
+  }
+
+  function buffCountFromValue(value){
+    return Math.floor(value / 7_000_000);
+  }
+
+  function pickBuffs(position, n){
+    if(n <= 0) return [];
+    const pool = (BUFF_WEIGHTS_BY_POSITION[position] || BUFF).slice();
+    // Add a little variety by mixing in full list.
+    const mixed = pool.concat(BUFF);
+    const chosen = new Set();
+    while(chosen.size < n && chosen.size < BUFF.length){
+      chosen.add(randChoice(mixed));
+    }
+    return [...chosen];
+  }
+
+  function generateName(country){
+    const c = NAMES.countries[country];
+    const first = randChoice(c.firstNames);
+    const last = randChoice(c.lastNames);
+    return first + " " + last;
+  }
+
+  function pickNationalities(totalPlayers, mainCountry, foreignersCount){
+    const all = Object.keys(NAMES.countries);
+    const others = all.filter(x => x !== mainCountry);
+    const result = new Array(totalPlayers).fill(mainCountry);
+
+    const k = clamp(foreignersCount, 0, totalPlayers);
+    const indices = [...Array(totalPlayers).keys()];
+    // shuffle indices
+    for(let i=indices.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    for(let t=0;t<k;t++){
+      result[indices[t]] = randChoice(others);
+    }
+    return result;
+  }
+
+  function generatePlayers(){
+    const positions = getSelectedPositions();
+    const inv = parseInt(elInv.value,10);
+    const acad = parseInt(elAcad.value,10);
+    const mainNat = elMainNat.value;
+    const foreigners = clamp(parseInt(elForeigners.value || "0",10), 0, 6);
+
+    const totalPlayers = positions.length * 2;
+    const natAssignments = pickNationalities(totalPlayers, mainNat, foreigners);
+
+    const players = [];
+    let idx = 0;
+    for(const pos of positions){
+      for(let i=0;i<2;i++){
+        const nationality = natAssignments[idx++];
+        const name = generateName(nationality);
+        const age = randInt(16, 21);
+        const value = generateValue(inv, acad);
+        const bCount = buffCountFromValue(value);
+        const buffs = pickBuffs(pos, bCount);
+        players.push({pos, name, age, nationality, value, buffs});
+      }
+    }
+    return players;
+  }
+
+  function render(players){
+    elResultsBody.innerHTML = "";
+    for(const p of players){
+      const tr = document.createElement("tr");
+      const stars = p.buffs.length ? "★".repeat(p.buffs.length) : "";
+      const buffsText = p.buffs.length ? p.buffs.join(" • ") : "—";
+      tr.innerHTML = `
+        <td><span class="tag">${p.pos}</span></td>
+        <td><div style="font-weight:700">${p.name}</div></td>
+        <td class="value">${p.age}</td>
+        <td>${p.nationality}</td>
+        <td class="value">
+          <div><b>${formatEUR(p.value)}</b><span class="stars">${stars}</span></div>
+          <div class="buffs"><span class="muted">Buffs:</span> ${buffsText}</div>
+        </td>
+      `;
+      elResultsBody.appendChild(tr);
+    }
+    elResultsTable.style.display = "table";
+    elEmptyState.style.display = "none";
+  }
+
+  function resetAll(){
+    // uncheck all
+    elPositions.querySelectorAll('input[type="checkbox"]').forEach(x => x.checked = false);
+    elInv.value = "1"; elAcad.value = "1"; elForeigners.value = "0";
+    elInvLabel.textContent = "1"; elAcadLabel.textContent = "1";
+    elResultsTable.style.display = "none";
+    elEmptyState.style.display = "block";
+    elResultsBody.innerHTML = "";
+    validate();
+  }
+
+  // ----------------------------
+  // Load names.json
+  // ----------------------------
+  async function loadNames(){
+    try{
+      const res = await fetch("./names.json", {cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if(!data || !data.countries) throw new Error("Invalid names.json format");
+      NAMES = data;
+      populateNationalities();
+    }catch(err){
+      console.error(err);
+      NAMES = null;
+    } finally {
+      validate();
+    }
+  }
+
+  // ----------------------------
+  // Wire up
+  // ----------------------------
+  createPositionsUI();
+
+  elInv.addEventListener("input", () => { elInvLabel.textContent = elInv.value; validate(); });
+  elAcad.addEventListener("input", () => { elAcadLabel.textContent = elAcad.value; validate(); });
+  elForeigners.addEventListener("input", () => {
+    // clamp live
+    const v = clamp(parseInt(elForeigners.value || "0",10), 0, 6);
+    elForeigners.value = String(v);
+    validate();
+  });
+
+  elGenerate.addEventListener("click", () => {
+    const positions = getSelectedPositions();
+    if(positions.length < 1 || positions.length > 3) return;
+    const players = generatePlayers();
+    render(players);
+  });
+
+  elReset.addEventListener("click", resetAll);
+
+  loadNames();
+})();
+</script>
+</body>
+</html>
